@@ -1,6 +1,6 @@
 from tkinter import Tk, BOTH, Canvas
 import time
-
+import random
 
 class Window:
     def __init__(self, width: int, height: int):
@@ -62,6 +62,7 @@ class Cell:
         self.__x2 = -1
         self.__y2 = -1
         self.__win = win
+        self.visited = False
 
     def draw(self, x1: int, y1: int, x2: int, y2: int):
         """
@@ -138,6 +139,7 @@ class Maze:
         cell_size_x: int,
         cell_size_y: int,
         win: Window = None,
+        seed: int = None,
     ):
         """
         Maze constructor. Initialize a maze with the given dimensions and cell size
@@ -157,6 +159,7 @@ class Maze:
         :type cell_size_y: int
         :param win: Window object to draw the maze
         :type win: Window
+        :param seed: random seed for maze generation (used for testing)
         """
         self.__x1 = x1
         self.__y1 = y1
@@ -168,6 +171,10 @@ class Maze:
         self.__cells = []
         self.__create_cells()
         self.__break_entrance_and_exit()
+        if seed is not None:
+            random.seed(seed)
+        self.__break_walls_r(0, 0)
+        self.__reset_cells_visited()
 
     def __create_cells(self):
         """
@@ -225,11 +232,115 @@ class Maze:
         self.__cells[self.__num_cols - 1][self.__num_rows - 1].has_bottom_wall = False
         self.__draw_cell(self.__num_cols - 1, self.__num_rows - 1)
 
+    def __break_walls_r(self, i: int, j: int):
+        """
+        Recursively break walls to create a maze using Depth-First Search algorithm
 
+        :param self: current Maze object
+        :param i: column index of the current cell
+        :type i: int
+        :param j: row index of the current cell
+        :type j: int
+        """
+        self.__cells[i][j].visited = True
+        while True:
+            to_visit = []
+            # Check neighboring cells
+            if i > 0 and not self.__cells[i - 1][j].visited:
+                to_visit.append((i - 1, j))
+            if i < self.__num_cols - 1 and not self.__cells[i + 1][j].visited:
+                to_visit.append((i + 1, j))
+            if j > 0 and not self.__cells[i][j - 1].visited:
+                to_visit.append((i, j - 1))
+            if j < self.__num_rows - 1 and not self.__cells[i][j + 1].visited:
+                to_visit.append((i, j + 1))
+            if to_visit==[]:
+                self.__draw_cell(i,j)
+                return
+            # Pick a random cell to move to
+            move = random.randint(0, len(to_visit) - 1)
+            next_i, next_j = to_visit[move]
+            # Break walls between current cell and chosen cell
+            if next_i == i + 1:
+                self.__cells[i][j].has_right_wall = False
+                self.__cells[next_i][next_j].has_left_wall = False
+            if next_i == i - 1:
+                self.__cells[i][j].has_left_wall = False
+                self.__cells[next_i][next_j].has_right_wall = False
+            if next_j == j + 1:
+                self.__cells[i][j].has_bottom_wall = False
+                self.__cells[next_i][next_j].has_top_wall = False
+            if next_j == j - 1:
+                self.__cells[i][j].has_top_wall = False
+                self.__cells[next_i][next_j].has_bottom_wall = False
+            # Recursively visit the chosen cell
+            self.__break_walls_r(next_i, next_j)
+           
+
+    def __reset_cells_visited(self):
+        """
+        Reset the visited status of all cells in the maze to False
+
+        :param self: current Maze object
+        """
+        for col in self.__cells:
+            for cell in col:
+                cell.visited = False
+                
+    def _solve_r(self, i: int, j: int) -> bool:
+        """
+        Recursively solve the maze using Depth-First Search algorithm
+
+        :param self: current Maze object
+        :param i: column index of the current cell
+        :type i: int
+        :param j: row index of the current cell
+        :type j: int
+        :return: True if the exit is reached, False otherwise
+        :rtype: bool
+        """
+        self.__animate()
+        self.__cells[i][j].visited = True
+        if i == self.__num_cols - 1 and j == self.__num_rows - 1:
+            return True  # Exit reached
+        # Explore neighboring cells
+        directions = [
+            (0, -1, 'top', 'bottom'),    # Up
+            (1, 0, 'right', 'left'),     # Right
+            (0, 1, 'bottom', 'top'),     # Down
+            (-1, 0, 'left', 'right')     # Left
+        ]
+        for di, dj, wall_from, wall_to in directions:
+            ni, nj = i + di, j + dj
+            if 0 <= ni < self.__num_cols and 0 <= nj < self.__num_rows:
+                if not getattr(self.__cells[i][j], f'has_{wall_from}_wall') and not self.__cells[ni][nj].visited:
+                    self.__cells[i][j].draw_move(self.__cells[ni][nj])
+                    if self._solve_r(ni, nj):
+                        return True
+                    else:
+                        self.__cells[i][j].draw_move(self.__cells[ni][nj], undo=True)
+        return False
+    
+    def solve(self) -> bool:
+        """
+        Solve the maze using Depth-First Search algorithm
+
+        :param self: current Maze object
+        :return: True if the exit is reached, False otherwise
+        :rtype: bool
+        """
+        return self._solve_r(0, 0)
+    
 def main():
     win = Window(800, 600)
 
-    maze = Maze(10, 10, 10, 10, 20, 20, win)
+    maze = Maze(10, 10, 29, 39, 20, 20, win, seed=42)
+    
+    result = maze.solve()
+    if result:
+        print("Maze solved!")
+    else:
+        print("No solution found.")
 
     win.wait_for_close()
 
