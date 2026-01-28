@@ -1,4 +1,5 @@
 from tkinter import Tk, BOTH, Canvas
+import time
 
 class Window:
     def __init__(self, width: int, height: int):
@@ -40,7 +41,14 @@ class Line:
         )
 
 class Cell:
-    def __init__(self, win: Window):
+    def __init__(self, win: Window = None):
+        """
+        Cell constructor. Initialize cell with walls on all sides and no coordinates
+        
+        :param self: current Cell object
+        :param win: Window object to draw the cell
+        :type win: Window
+        """
         self.has_left_wall = True
         self.has_right_wall = True
         self.has_top_wall = True
@@ -52,24 +60,58 @@ class Cell:
         self.__win = win
 
     def draw(self, x1: int, y1: int, x2: int, y2: int):
+        """
+        Draw a cell with the given coordinates (upper left corner and lower right corner)
+        
+        :param self: current Cell object
+        :param x1: upper left corner x coordinate
+        :type x1: int
+        :param y1: upper left corner y coordinate
+        :type y1: int
+        :param x2: lower right corner x coordinate
+        :type x2: int
+        :param y2: lower right corner y coordinate
+        :type y2: int
+        """
         self.__x1 = x1
         self.__y1 = y1
         self.__x2 = x2
         self.__y2 = y2
-        if self.has_left_wall:
+        if self.__win is not None:
             line = Line(Point(x1, y1), Point(x1, y2))
-            self.__win.draw_line(line)
-        if self.has_top_wall:
+            if self.has_left_wall:
+                self.__win.draw_line(line, "black")
+            else:
+                self.__win.draw_line(line, "white")
+            
             line = Line(Point(x1, y1), Point(x2, y1))
-            self.__win.draw_line(line)
-        if self.has_bottom_wall:
+            if self.has_top_wall:
+                self.__win.draw_line(line, "black")
+            else:
+                self.__win.draw_line(line, "white")
+            
             line = Line(Point(x1, y2), Point(x2, y2))
-            self.__win.draw_line(line)
-        if self.has_right_wall:
+            if self.has_bottom_wall:    
+                self.__win.draw_line(line, "black")
+            else:
+                self.__win.draw_line(line, "white")
+            
             line = Line(Point(x2, y1), Point(x2, y2))
-            self.__win.draw_line(line)
+            if self.has_right_wall:
+                self.__win.draw_line(line, "black")
+            else:
+                self.__win.draw_line(line, "white")
     
     def draw_move(self, to_cell: Cell, undo: bool = False):
+        """
+        Draw a line from the center of the current cell to the center of the destination cell
+        
+        :param self:Current Cell object
+        :param to_cell: Destination Cell object
+        :type to_cell: Cell
+        :param undo: Use red color if undo is True, otherwise use gray color (backtrace)
+        :type undo: bool
+        """
         fill_color = "red"
         if undo:
             fill_color = "gray"
@@ -78,25 +120,59 @@ class Cell:
         to_center_x = (to_cell.__x1 + to_cell.__x2) // 2
         to_center_y = (to_cell.__y1 + to_cell.__y2) // 2
         line = Line(Point(center_x, center_y), Point(to_center_x, to_center_y))
-        self.__win.draw_line(line, fill_color)
-      
+        if self.__win is not None:
+            self.__win.draw_line(line, fill_color)
+
+class Maze():
+    def __init__(self, x1: int, y1: int, num_rows: int, num_cols: int, cell_size_x: int, cell_size_y: int, win: Window = None):
+        self.__x1 = x1
+        self.__y1 = y1
+        self.__num_rows = num_rows
+        self.__num_cols = num_cols
+        self.__cell_size_x = cell_size_x
+        self.__cell_size_y = cell_size_y
+        self.__win = win
+        self.__cells = []
+        self.__create_cells()
+        self.__break_entrance_and_exit()
+        
+    def __create_cells(self):
+        for i in range(self.__num_cols):
+            col_cells = []
+            for j in range(self.__num_rows):
+                col_cells.append(Cell(self.__win))
+            self.__cells.append(col_cells)
+        for i in range(self.__num_cols):
+            for j in range(self.__num_rows):
+                self.__draw_cell(i, j)
+
+    def __draw_cell(self, i: int, j: int):
+        if self.__win is None:
+            return
+        x1 = self.__x1 + i * self.__cell_size_x
+        y1 = self.__y1 + j * self.__cell_size_y
+        x2 = x1 + self.__cell_size_x
+        y2 = y1 + self.__cell_size_y
+        self.__cells[i][j].draw(x1, y1, x2, y2)
+        self.__animate()
+    
+    def __animate(self):
+        if self.__win is None:
+            return
+        self.__win.redraw()
+        time.sleep(0.02)
+        
+    def __break_entrance_and_exit(self):
+        self.__cells[0][0].has_top_wall = False
+        self.__draw_cell(0, 0)
+        self.__cells[self.__num_cols - 1][self.__num_rows - 1].has_bottom_wall = False
+        self.__draw_cell(self.__num_cols - 1, self.__num_rows - 1)
 
 def main():
     win = Window(800, 600)
-    cell1 = Cell(win)
-    cell1.draw(10, 10, 100, 100)
-    cell2 = Cell(win)
-    cell2.has_left_wall = False
-    cell2.draw(100, 10, 200, 100)
-    cell3 = Cell(win)
-    cell3.has_top_wall = False
-    cell3.draw(200, 10, 300, 100)
-    cell4 = Cell(win)
-    cell4.has_right_wall = False
-    cell4.draw(300, 10, 400, 100)
-    cell1.draw_move(cell2)
-    cell2.draw_move(cell3, True)
-    cell3.draw_move(cell4)
+    
+    maze = Maze(10, 10, 10, 10, 20, 20, win)
+
     win.wait_for_close()
         
 if __name__ == "__main__":
